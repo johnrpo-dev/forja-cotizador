@@ -1,0 +1,51 @@
+sku,nombre,categoria,unidad,precio_unitario_cop,stock
+SIL-001,Silla ergonómica Cedro Pro malla negra,sillas,unidad,689000,34
+SIL-002,Silla operativa Tayrona con brazos ajustables,sillas,unidad,412000,58
+SIL-003,Silla gerencial Monserrate cuero sintético,sillas,unidad,1185000,0
+SIL-004,Silla interlocutora Guadua patín cromado,sillas,unidad,238000,76
+SIL-005,Silla cajero alta con aro reposapiés,sillas,unidad,356000,21
+SIL-006,Silla rimax apilable para eventos,sillas,unidad,68000,240
+SIL-007,Silla de espera tándem 3 puestos metálica,sillas,unidad,745000,15
+SIL-008,Silla ergonómica Nogal con soporte lumbar,sillas,unidad,915000,18
+SIL-009,Butaco giratorio para laboratorio,sillas,unidad,187000,42
+SIL-010,Silla plegable acolchada para capacitaciones,sillas,unidad,94000,130
+ESC-001,Escritorio operativo Cedro 120x60 melamina,escritorios,unidad,489000,40
+ESC-002,Escritorio en L Amazonas 150x150 con archivador,escritorios,unidad,1235000,14
+ESC-003,Escritorio gerencial Macondo 180x80 wengué,escritorios,unidad,1890000,0
+ESC-004,Estación de trabajo doble con división en vidrio,escritorios,juego,2450000,5
+ESC-005,Escritorio elevable eléctrico 140x70,escritorios,unidad,2180000,9
+ESC-006,Mesa de juntas ovalada 240x110 para 8 personas,escritorios,unidad,1975000,4
+ESC-007,Escritorio auxiliar plegable 100x50,escritorios,unidad,265000,55
+ESC-008,Mesa de cómputo con bandeja portateclado,escritorios,unidad,329000,38
+ESC-009,Escritorio recepción curvo con frente en acrílico,escritorios,unidad,1640000,6
+ESC-010,Mesa auxiliar rodante para impresora,escritorios,unidad,215000,29
+ARC-001,Archivador vertical 4 gavetas metálico gris,archivadores,unidad,865000,22
+ARC-002,Archivador 2x1 con cajón de seguridad,archivadores,unidad,529000,31
+ARC-003,Gabinete alto 2 puertas con entrepaños,archivadores,unidad,698000,19
+ARC-004,Locker metálico 9 puestos,archivadores,unidad,1120000,11
+ARC-005,Folderama abierto 5 entrepaños,archivadores,unidad,585000,16
+ARC-006,Archivador aéreo para estación modular,archivadores,unidad,298000,44
+ARC-007,Estante metálico carga liviana 200x90x40,archivadores,unidad,345000,52
+ARC-008,Caja fuerte digital para oficina 25 litros,archivadores,unidad,462000,0
+ARC-009,Archivador rodante 3 gavetas bajo escritorio,archivadores,unidad,398000,47
+ARC-010,Planoteca horizontal 5 gavetas,archivadores,unidad,1380000,3
+ILU-001,Lámpara de escritorio LED brazo articulado,iluminación,unidad,128000,88
+ILU-002,Panel LED 60x60 40W luz blanca,iluminación,unidad,96000,150
+ILU-003,Lámpara de piso arco para sala de espera,iluminación,unidad,315000,17
+ILU-004,Lámpara colgante lineal 120cm para juntas,iluminación,unidad,428000,12
+ILU-005,Bombillo LED 9W rosca E27 luz día,iluminación,unidad,15000,600
+ILU-006,Reflector LED exterior 50W para bodega,iluminación,unidad,89000,64
+ILU-007,Lámpara de escritorio con puerto USB y reloj,iluminación,unidad,164000,53
+ILU-008,Tubo LED T8 18W 120cm,iluminación,unidad,24000,320
+ILU-009,Aplique de pared LED para recepción,iluminación,unidad,142000,26
+ILU-010,Kit 6 balas LED incrustar 7W,iluminación,juego,118000,71
+ACC-001,Base refrigerante para portátil,accesorios,unidad,78000,95
+ACC-002,Descansapiés ergonómico ajustable,accesorios,unidad,105000,62
+ACC-003,Organizador de escritorio metálico 5 compartimentos,accesorios,unidad,58000,140
+ACC-004,Papelera metálica perforada 12 litros,accesorios,unidad,42000,180
+ACC-005,Tablero acrílico borrable 120x80 con marco aluminio,accesorios,unidad,185000,33
+ACC-006,Cartelera corcho 90x60,accesorios,unidad,96000,48
+ACC-007,Soporte monitor doble brazo articulado,accesorios,unidad,248000,27
+ACC-008,Perchero de pie metálico 8 ganchos,accesorios,unidad,132000,36
+ACC-009,Divisor de escritorio en paño 120x40,accesorios,unidad,155000,41
+ACC-010,Kit cablería y canaleta para estación de trabajo,accesorios,juego,67000,110

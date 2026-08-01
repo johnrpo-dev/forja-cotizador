@@ -1,0 +1,15 @@
+# Claude Code: configuración local y junction de skills
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Estado generado: los .docx/.pdf no se versionan; historial.csv sí (evidencia)
+salidas/*.docx
+salidas/*.pdf
+!salidas/historial.csv
+
+# Artefacto de empaquetado (se regenera desde skill/)
+forja.zip
