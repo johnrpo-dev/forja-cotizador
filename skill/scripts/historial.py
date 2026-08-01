@@ -23,7 +23,7 @@ def siguiente_numero(ruta_historial: Path, anio: int) -> str:
     patron = re.compile(rf"^COT-{anio}-(\d+)$")
     maximo = 0
     if ruta_historial.exists():
-        with open(ruta_historial, newline="", encoding="utf-8") as f:
+        with open(ruta_historial, newline="", encoding="utf-8-sig") as f:
             for fila in csv.DictReader(f):
                 coincide = patron.match(fila.get("numero", "").strip())
                 if coincide:
@@ -35,7 +35,9 @@ def registrar(ruta_historial: Path, fila: dict) -> None:
     """Agrega la fila creando el archivo con encabezados si hace falta."""
     ruta_historial.parent.mkdir(parents=True, exist_ok=True)
     nuevo = not ruta_historial.exists()
-    with open(ruta_historial, "a", newline="", encoding="utf-8") as f:
+    # utf-8-sig: BOM al crear el archivo, para que Excel lo abra con acentos
+    # correctos. En append sobre archivo existente Python no re-emite el BOM.
+    with open(ruta_historial, "a", newline="", encoding="utf-8-sig") as f:
         escritor = csv.DictWriter(f, fieldnames=COLUMNAS, extrasaction="ignore")
         if nuevo:
             escritor.writeheader()

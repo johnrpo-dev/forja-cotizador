@@ -35,7 +35,7 @@ def test_flujo_completo_genera_documento_e_historial(tmp_path, capsys):
     assert salida["totales"]["subtotal"] == "1938000"
     assert salida["totales"]["total"] == "2306220"
     assert Path(salida["documento"]).exists()
-    with open(tmp_path / "salidas" / "historial.csv", newline="", encoding="utf-8") as f:
+    with open(tmp_path / "salidas" / "historial.csv", newline="", encoding="utf-8-sig") as f:
         filas = list(csv.DictReader(f))
     assert filas[0]["numero"] == "COT-2026-001"
     assert filas[0]["total"] == "2306220"
@@ -94,5 +94,5 @@ def test_descuento_excedido_marca_borrador_en_historial(tmp_path, capsys):
     peticion = dict(PETICION_BASE, descuento_manual_pct="0.20")
     _, salida = _correr(tmp_path, capsys, peticion)
     assert salida["requiere_aprobacion"] is True
-    with open(tmp_path / "salidas" / "historial.csv", newline="", encoding="utf-8") as f:
+    with open(tmp_path / "salidas" / "historial.csv", newline="", encoding="utf-8-sig") as f:
         assert list(csv.DictReader(f))[0]["estado"] == "borrador_requiere_aprobacion"

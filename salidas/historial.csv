@@ -1,9 +1,9 @@
-numero,fecha,cliente_nit,cliente_nombre,subtotal,descuento,iva,total,estado
-COT-2026-001,2026-07-31,901238450-6,Café y Punto SAS,1938000,0,368220,2306220,emitida
-COT-2026-002,2026-07-31,901203658-2,Estudio Jurídico Vargas y Asociados SAS,3075000,0,584250,3659250,emitida
-COT-2026-003,2026-07-31,900218965-7,Ferretería La Frontera SAS,7008000,1401600,1065216,6671616,borrador_requiere_aprobacion
-COT-2026-004,2026-07-31,830214569-7,Fiduciaria Andina SA,36724500,0,6977655,43702155,emitida
-COT-2026-005,2026-07-31,900493127-8,Universidad Corporación del Sur,5816000,0,1105040,6921040,emitida
-COT-2026-006,2026-07-31,901318492-6,Corabastos Mayorista del Centro SAS,1572000,0,298680,1870680,emitida
-COT-2026-007,2026-07-31,900786153-4,Droguería Nororiente SAS,1464000,0,278160,1742160,emitida
-COT-2026-008,2026-07-31,900873264-1,Logística del Oriente SAS,6763000,0,1284970,8047970,emitida
+﻿numero,fecha,cliente_nit,cliente_nombre,subtotal,descuento,iva,total,estado
+COT-2026-001,2026-08-01,901238450-6,Café y Punto SAS,1938000,0,368220,2306220,emitida
+COT-2026-002,2026-08-01,901203658-2,Estudio Jurídico Vargas y Asociados SAS,3075000,0,584250,3659250,emitida
+COT-2026-003,2026-08-01,900218965-7,Ferretería La Frontera SAS,7008000,1401600,1065216,6671616,borrador_requiere_aprobacion
+COT-2026-004,2026-08-01,830214569-7,Fiduciaria Andina SA,36724500,0,6977655,43702155,emitida
+COT-2026-005,2026-08-01,900493127-8,Universidad Corporación del Sur,5816000,0,1105040,6921040,emitida
+COT-2026-006,2026-08-01,901318492-6,Corabastos Mayorista del Centro SAS,1572000,0,298680,1870680,emitida
+COT-2026-007,2026-08-01,900786153-4,Droguería Nororiente SAS,1464000,0,278160,1742160,emitida
+COT-2026-008,2026-08-01,900873264-1,Logística del Oriente SAS,6763000,0,1284970,8047970,emitida

@@ -32,7 +32,7 @@ def test_registrar_crea_encabezados_y_acumula(tmp_path):
     historial.registrar(ruta, {"numero": "COT-2026-001", "total": "809200",
                                "campo_extra": "se ignora"})
     historial.registrar(ruta, {"numero": "COT-2026-002"})
-    with open(ruta, newline="", encoding="utf-8") as f:
+    with open(ruta, newline="", encoding="utf-8-sig") as f:
         filas = list(csv.DictReader(f))
     assert [f_["numero"] for f_ in filas] == ["COT-2026-001", "COT-2026-002"]
     assert list(filas[0].keys()) == historial.COLUMNAS
