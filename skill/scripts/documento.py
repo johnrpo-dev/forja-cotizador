@@ -3,6 +3,9 @@
 No calcula nada: recibe números ya cerrados y los pinta sobre assets/plantilla.docx.
 Los marcadores {{ASI}} de la plantilla están cada uno en un run propio, por eso
 el reemplazo por run es suficiente y no hay que reconstruir párrafos.
+
+Dos documentos, el mismo mecanismo: generar_docx() para la cotización y
+generar_ficha_docx() para la ficha técnica de producto (assets/plantilla_ficha.docx).
 """
 
 import shutil
@@ -16,7 +19,11 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
-PLANTILLA = Path(__file__).resolve().parent.parent / "assets" / "plantilla.docx"
+ASSETS = Path(__file__).resolve().parent.parent / "assets"
+PLANTILLA = ASSETS / "plantilla.docx"
+PLANTILLA_FICHA = ASSETS / "plantilla_ficha.docx"
+
+PLURAL_UNIDAD = {"unidad": "unidades", "juego": "juegos"}
 
 
 def _cop(valor: Decimal) -> str:
@@ -143,6 +150,67 @@ def generar_docx(resultado, cliente, numero: str, textos: dict, destino: Path) -
 
     destino.mkdir(parents=True, exist_ok=True)
     ruta = destino / f"{numero}.docx"
+    doc.save(ruta)
+    return ruta
+
+
+def generar_ficha_docx(sku: str, producto: dict, especificaciones: dict,
+                       textos: dict, destino: Path) -> Path:
+    """Renderiza la ficha técnica de un producto. Devuelve la ruta del .docx.
+
+    No consume consecutivo: la ficha es informativa y se identifica por SKU,
+    no por número de cotización.
+
+    Args:
+        sku: código del producto en el catálogo.
+        producto: registro de datos_io.cargar_catalogo (nombre, categoria,
+            unidad, precio_unitario, stock).
+        especificaciones: datos_io.especificaciones_de(nombre).
+        textos: {"fecha", "tiempo_entrega", "observaciones", "asesor",
+                 "validez_dias", "nota_especificaciones"} — redacción que
+            aporta el flujo, igual que en generar_docx.
+        destino: carpeta de salida (fuera de skill/).
+    """
+    doc = Document(PLANTILLA_FICHA)
+
+    stock = producto["stock"]
+    unidad = producto.get("unidad", "unidad")
+    plural = PLURAL_UNIDAD.get(unidad, unidad)
+    if stock > 0:
+        disponibilidad = "Disponible"
+        existencias = f"{stock} {plural}"
+    else:
+        disponibilidad = "Sin existencias"
+        existencias = "Agotado — sujeto a reposición"
+
+    valores = {
+        "{{SKU}}": sku,
+        "{{FECHA}}": textos.get("fecha", ""),
+        "{{NOMBRE}}": producto["nombre"],
+        "{{CATEGORIA}}": producto.get("categoria", "").capitalize(),
+        "{{UNIDAD}}": unidad,
+        "{{DISPONIBILIDAD}}": disponibilidad,
+        # El texto concuerda con el género y número de cada etiqueta de la
+        # plantilla: "Dimensiones: no registradas", "Materiales: no registrados".
+        "{{DIMENSIONES}}": (especificaciones.get("dimensiones")
+                            or "No registradas en catálogo"),
+        "{{MATERIALES}}": (", ".join(especificaciones.get("materiales") or [])
+                           or "No registrados en catálogo"),
+        "{{CARACTERISTICAS}}": (", ".join(especificaciones.get("caracteristicas") or [])
+                                or "No registradas en catálogo"),
+        "{{DESCRIPCION}}": producto["nombre"],
+        "{{NOTA_ESPECIFICACIONES}}": textos.get("nota_especificaciones", ""),
+        "{{PRECIO_LISTA}}": _cop(producto["precio_unitario"]),
+        "{{EXISTENCIAS}}": existencias,
+        "{{TIEMPO_ENTREGA}}": textos.get("tiempo_entrega", ""),
+        "{{VALIDEZ_DIAS}}": str(textos.get("validez_dias", "")),
+        "{{OBSERVACIONES}}": textos.get("observaciones", "Ninguna."),
+        "{{ASESOR}}": textos.get("asesor", "Equipo comercial"),
+    }
+    _reemplazar_en(_parrafos_del_documento(doc), valores)
+
+    destino.mkdir(parents=True, exist_ok=True)
+    ruta = destino / f"FICHA-{sku}.docx"
     doc.save(ruta)
     return ruta
 

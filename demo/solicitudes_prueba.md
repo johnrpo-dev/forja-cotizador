@@ -2,7 +2,11 @@
 
 Mensajes recibidos por el canal de WhatsApp de ventas. Transcripción literal,
 lenguaje informal. Usar junto con `catalogo.csv`, `clientes.csv` y
-`politicas_comerciales.md` para generar las cotizaciones.
+`politicas_comerciales.md` para generar los documentos comerciales.
+
+Las solicitudes 1 a 12 piden **cotización**. Las 13 y 14 piden **ficha
+técnica**: preguntan por el producto sin pedir precios ni cantidades, y no
+deben consumir consecutivo del historial.
 
 ---
 
@@ -96,3 +100,20 @@ lenguaje informal. Usar junto con `catalogo.csv`, `clientes.csv` y
 > mini split de 12000 BTU pa unas habitaciones. Yo le dije que creo que eso
 > no lo manejamos pero quedé de averiguar... revisa y me dices qué le
 > respondo porfa
+
+## Solicitud 13
+
+> [7:50 a.m.] Buenos días! Doña Miriam de la Droguería Nororiente pregunta
+> una cosa antes de encargar más estantes: qué medidas tiene el estante
+> metálico ese de carga liviana? Es que quiere saber si le entra en el
+> pasillo de atrás, que allá el espacio es angostico. No me arme coti
+> todavía por favor, solo dígame las medidas y de qué material es 🙏
+
+## Solicitud 14
+
+> [8:30 a.m.] Sumercé buenos días. De la Universidad Corporación del Sur en
+> Pasto me piden la ficha técnica de la silla ergonómica Nogal, la del
+> soporte lumbar. Es pa anexarla al proceso de compra, el comité pide el
+> documento con todas las especificaciones. Todavía no hay orden ni han
+> definido cuántas van a comprar, apenas están armando el expediente. Me la
+> mandas hoy porfa

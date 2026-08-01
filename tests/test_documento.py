@@ -104,3 +104,70 @@ def test_a_pdf_sin_libreoffice_devuelve_docx(tmp_path, monkeypatch):
     monkeypatch.setattr(documento.shutil, "which", lambda _: None)
     ruta, _ = _generar(tmp_path, [{"sku": "SIL-006", "cantidad": 1}])
     assert documento.a_pdf(ruta) == ruta  # no falla, degrada al .docx
+
+
+# --- ficha técnica de producto ---------------------------------------------
+
+PRODUCTO = {
+    "nombre": "Estante metálico carga liviana 200x90x40",
+    "categoria": "archivadores", "unidad": "unidad",
+    "precio_unitario": Decimal("345000"), "stock": 52,
+}
+ESPECIFICACIONES = {
+    "dimensiones": "200 × 90 × 40 cm", "materiales": ["Metal"], "caracteristicas": [],
+}
+TEXTOS_FICHA = {
+    "fecha": "2026-08-01", "tiempo_entrega": "2 días hábiles (Bogotá)",
+    "observaciones": "Ninguna.", "asesor": "Vendedor Demo", "validez_dias": 15,
+    "nota_especificaciones": "Especificaciones tomadas del catálogo vigente.",
+}
+
+
+def test_ficha_se_nombra_por_sku_y_no_deja_marcadores(tmp_path):
+    ruta = documento.generar_ficha_docx(
+        "ARC-007", PRODUCTO, ESPECIFICACIONES, TEXTOS_FICHA, tmp_path)
+    assert ruta == tmp_path / "FICHA-ARC-007.docx"  # sin consecutivo COT-
+    texto = _texto_completo(ruta)
+    assert "{{" not in texto
+    assert "FICHA TÉCNICA" in texto and "ARC-007" in texto
+
+
+def test_ficha_muestra_specs_precio_y_disponibilidad(tmp_path):
+    ruta = documento.generar_ficha_docx(
+        "ARC-007", PRODUCTO, ESPECIFICACIONES, TEXTOS_FICHA, tmp_path)
+    texto = _texto_completo(ruta)
+    assert "200 × 90 × 40 cm" in texto
+    assert "Metal" in texto
+    assert "$ 345.000" in texto  # precio de lista antes de IVA
+    assert "Disponible" in texto and "52 unidades" in texto
+    assert "2 días hábiles (Bogotá)" in texto
+
+
+def test_ficha_declara_lo_que_el_catalogo_no_registra(tmp_path):
+    vacias = {"dimensiones": "", "materiales": [], "caracteristicas": []}
+    textos = dict(TEXTOS_FICHA,
+                  nota_especificaciones="El catálogo no registra dimensiones, "
+                                        "materiales y características para este producto.")
+    ruta = documento.generar_ficha_docx(
+        "SIL-009", dict(PRODUCTO, nombre="Butaco giratorio para laboratorio"),
+        vacias, textos, tmp_path)
+    texto = _texto_completo(ruta)
+    # Concordancia por campo, no un "No registrada" genérico en las tres filas.
+    assert "No registradas en catálogo" in texto   # dimensiones y características
+    assert "No registrados en catálogo" in texto   # materiales
+    assert "El catálogo no registra dimensiones, materiales y características" in texto
+
+
+def test_ficha_sin_stock_lo_dice(tmp_path):
+    ruta = documento.generar_ficha_docx(
+        "ARC-008", dict(PRODUCTO, stock=0), ESPECIFICACIONES, TEXTOS_FICHA, tmp_path)
+    texto = _texto_completo(ruta)
+    assert "Sin existencias" in texto
+    assert "Agotado — sujeto a reposición" in texto
+
+
+def test_ficha_pluraliza_la_unidad_de_venta(tmp_path):
+    ruta = documento.generar_ficha_docx(
+        "ILU-010", dict(PRODUCTO, unidad="juego", stock=71),
+        ESPECIFICACIONES, TEXTOS_FICHA, tmp_path)
+    assert "71 juegos" in _texto_completo(ruta)

@@ -2,9 +2,13 @@
 
 Aislado del núcleo a propósito: si mañana los datos vienen de una API o de un
 Excel, cambia este archivo y calculo.py no se entera.
+
+También interpreta el catálogo: especificaciones_de() extrae dimensiones,
+materiales y características del nombre del producto para la ficha técnica.
 """
 
 import csv
+import re
 import unicodedata
 from decimal import Decimal
 from difflib import SequenceMatcher
@@ -124,6 +128,105 @@ def tiempo_entrega(ciudad: str) -> str:
     if dias is None:
         return ENTREGA_OTRAS_CIUDADES
     return f"{dias} días hábiles"
+
+
+# --- Lectura de especificaciones desde el nombre del producto ---------------
+#
+# El catálogo no tiene columnas de dimensiones ni materiales: esos datos viven
+# dentro del nombre ("Estante metálico carga liviana 200x90x40"). La ficha
+# técnica los extrae de ahí, y SOLO de ahí. Si el nombre no lo dice, la ficha
+# lo declara ausente: deducir el material de una línea de producto o estimar
+# una medida sería inventar una especificación, que es justo lo que la skill
+# tiene prohibido.
+
+# Solo términos que aparecen literalmente en catalogo.csv. Los nombres de línea
+# (Cedro Pro, Tayrona, Monserrate, Guadua, Amazonas, Macondo, Nogal) NO son
+# materiales aunque suenen a madera: son marcas.
+# Los \b son obligatorios: sin ellos "entrepaños" contiene "paño" y un gabinete
+# metálico salía con "Paño" entre sus materiales — una especificación inventada.
+MATERIALES = (
+    (r"\bcuero sint[ée]tico\b", "Cuero sintético"),
+    (r"\bmet[áa]lic[oa]s?\b", "Metal"),
+    (r"\bmelamina\b", "Melamina"),
+    (r"\bacr[íi]lico\b", "Acrílico"),
+    (r"\baluminio\b", "Aluminio"),
+    (r"\bvidrio\b", "Vidrio"),
+    (r"\bmallas?\b", "Malla"),
+    (r"\bcorcho\b", "Corcho"),
+    (r"\bpa[ñn]os?\b", "Paño"),
+    (r"\bcromad[oa]s?\b", "Cromado"),
+    (r"\bmaderas?\b", "Madera"),
+)
+
+# Cada componente exige 2+ dígitos: descarta "2x1" de "Archivador 2x1 con cajón
+# de seguridad", que es una configuración de cuerpos y no una medida en cm.
+DIMENSIONES_XYZ = re.compile(r"\b(\d{2,}(?:x\d{2,}){1,2})\b", re.IGNORECASE)
+DIMENSION_CM = re.compile(r"\b(\d+)\s*cm\b", re.IGNORECASE)
+POTENCIA = re.compile(r"\b(\d+)\s*W\b")
+CAPACIDAD = re.compile(r"\b(\d+)\s*(litros?)\b", re.IGNORECASE)
+CONFIGURACION = re.compile(
+    r"\b(\d+)\s+(gavetas?|puertas?|puestos?|entrepa[ñn]os?|personas?"
+    r"|compartimentos?|ganchos?|balas?)\b",
+    re.IGNORECASE,
+)
+# Todo lo que sigue a "con " es la lista de características que el propio
+# catálogo enuncia: "... con soporte lumbar", "... con cajón de seguridad".
+CLAUSULA_CON = re.compile(r"\bcon\s+(.+)$", re.IGNORECASE)
+
+
+def _sin_repetir(valores) -> list[str]:
+    vistos, unicos = set(), []
+    for valor in valores:
+        if valor.lower() not in vistos:
+            vistos.add(valor.lower())
+            unicos.append(valor)
+    return unicos
+
+
+def especificaciones_de(nombre: str) -> dict:
+    """Extrae {"dimensiones", "materiales", "caracteristicas"} del nombre.
+
+    Lectura literal, nunca inferencia: lo que el nombre no dice sale vacío,
+    para que la ficha lo reporte como no registrado en catálogo. Las medidas
+    se expresan en centímetros, la unidad implícita del catálogo para
+    mobiliario.
+    """
+    nombre = (nombre or "").strip()
+
+    medidas = [" × ".join(m.lower().split("x")) for m in DIMENSIONES_XYZ.findall(nombre)]
+    medidas += DIMENSION_CM.findall(nombre)
+    dimensiones = f"{medidas[0]} cm" if medidas else ""
+
+    materiales = [etiqueta for patron, etiqueta in MATERIALES
+                  if re.search(patron, nombre, re.IGNORECASE)]
+
+    caracteristicas = [f"{cantidad} {unidad.lower()}"
+                       for cantidad, unidad in CONFIGURACION.findall(nombre)]
+    caracteristicas += [f"{vatios} W" for vatios in POTENCIA.findall(nombre)]
+    caracteristicas += [f"{cantidad} {unidad.lower()}"
+                        for cantidad, unidad in CAPACIDAD.findall(nombre)]
+    clausula = CLAUSULA_CON.search(nombre)
+    if clausula:
+        texto = clausula.group(1).strip()
+        caracteristicas.append(texto[0].upper() + texto[1:])
+
+    return {
+        "dimensiones": dimensiones,
+        "materiales": _sin_repetir(materiales),
+        "caracteristicas": _sin_repetir(caracteristicas),
+    }
+
+
+def campos_sin_registro(especificaciones: dict) -> list[str]:
+    """Etiquetas de los campos que el catálogo no registra, en orden de ficha.
+
+    Fuente única para el aviso del documento y para la alerta del JSON: si un
+    día se agrega un campo a la ficha, se agrega aquí y ambos lo reflejan.
+    """
+    return [etiqueta for clave, etiqueta in
+            (("dimensiones", "dimensiones"), ("materiales", "materiales"),
+             ("caracteristicas", "características"))
+            if not especificaciones.get(clave)]
 
 
 def cargar_politicas(ruta: Path | None = None) -> dict:

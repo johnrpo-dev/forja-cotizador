@@ -1,21 +1,34 @@
 ---
 name: forja
 description: >
-  Genera cotizaciones, propuestas y documentos comerciales de Distribuciones
-  El Cedro SAS (mobiliario y dotación de oficinas, pymes Colombia). ÚSALA
-  SIEMPRE que el usuario pida cotizar o "pasar precios", solicite una
-  propuesta, ficha técnica o documento comercial, mencione clientes,
+  Genera cotizaciones, fichas técnicas, propuestas y documentos comerciales
+  de Distribuciones El Cedro SAS (mobiliario y dotación de oficinas, pymes
+  Colombia). ÚSALA SIEMPRE que el usuario pida cotizar o "pasar precios",
+  solicite una propuesta o documento comercial, mencione clientes,
   productos, cantidades, descuentos o disponibilidad, o pegue un mensaje
   informal de WhatsApp pidiendo precios — aunque nunca aparezca la palabra
-  "cotización". Ante la duda de si aplica, aplica.
+  "cotización". ÚSALA IGUAL cuando no se hable de plata: pedir una ficha
+  técnica o la información de un producto, preguntar por especificaciones,
+  medidas, materiales, categoría, unidad de venta o existencias, o soltar
+  un "qué trae", "de qué material es" o "qué medidas tiene" sobre una
+  referencia del catálogo (ARC-007, SIL-008…) es ficha técnica, y la ficha
+  también es esta skill. Preguntar por un producto sin nombrar precios NO
+  la desactiva. Ante la duda de si aplica, aplica.
 ---
 
-# Forja — generador de cotizaciones
+# Forja — generador de documentos comerciales
 
-Convierte una solicitud informal ("me ayudas con una coti pa...") en una
-cotización formal numerada, con cálculos hechos por script determinístico.
-Tu papel: entender el lenguaje, validar contra los datos, redactar. El papel
-del script: TODA la aritmética.
+Convierte una solicitud informal ("me ayudas con una coti pa...") en un
+documento formal, con cálculos hechos por script determinístico. Tu papel:
+entender el lenguaje, validar contra los datos, redactar. El papel del
+script: TODA la aritmética.
+
+Genera dos documentos:
+
+| Documento | Responde a | Consume consecutivo |
+|---|---|---|
+| **Cotización** | cuánto vale, con cantidades y descuentos | Sí, `COT-AAAA-NNN` |
+| **Ficha técnica** | qué es el producto: specs, precio de lista, disponibilidad | No |
 
 ## Datos y herramientas
 
@@ -25,14 +38,31 @@ del script: TODA la aritmética.
 | `datos/clientes.csv` | NIT, contacto, ciudad, agente retenedor, condición de pago, notas |
 | `datos/politicas_comerciales.md` | Descuentos, validez, entregas por ciudad |
 | `references/reglas_tributarias.md` | Cómo calcula el motor (IVA, retefuente, redondeo) |
-| `scripts/cotizar.py` | ÚNICO punto de cálculo y generación de documento |
+| `scripts/cotizar.py` | ÚNICO punto de cálculo y generación de documento (ambos modos) |
 
 El estado (documentos e historial) SIEMPRE va fuera de la carpeta de la
 skill: pasa `--salidas` apuntando a una carpeta persistente del proyecto.
 
 ## Workflow obligatorio
 
-### 1. Extraer
+### 1. Decidir el tipo de documento
+
+Antes de extraer nada, mirar **qué pregunta hace el usuario**:
+
+| Si pide… | Documento |
+|---|---|
+| precios totales, cantidades, descuentos, "cuánto sale", "pásame una coti" | Cotización — pasos 2 a 7 |
+| ficha técnica, especificaciones, medidas, materiales, "información del producto", "qué trae", disponibilidad de una referencia | Ficha técnica — ver sección propia abajo |
+
+La señal es **si hay cantidades y un cliente que compra**. "¿Qué medidas tiene
+el estante ARC-007?" es una ficha, no una cotización de 1 unidad: emitir una
+cotización numerada por una consulta de producto ensucia el consecutivo con
+documentos que nadie pidió.
+
+Si la solicitud pide las dos cosas ("mándame la ficha y me cotizas 20"),
+se generan ambos documentos: primero la ficha, después la cotización.
+
+### 2. Extraer
 
 De la solicitud: cliente, ítems con **cantidades**, condiciones (pago,
 entrega, urgencia) y descuento pedido. Si a algún ítem le falta la cantidad
@@ -48,7 +78,7 @@ no requiere aprobación y que por encima pasa por gerencia comercial. El
 porcentaje es una decisión comercial del vendedor: el sistema nunca lo
 elige por su cuenta.
 
-### 2. Identificar el cliente
+### 3. Identificar el cliente
 
 Contra `datos/clientes.csv`, con `datos_io.buscar_cliente(texto)` (acepta
 razón social aproximada, sin tildes). El script también resuelve esto: si
@@ -58,7 +88,7 @@ contacto, condición de pago) antes de seguir. Lee las **notas** del cliente:
 casi siempre contienen una restricción de entrega o facturación que va en la
 cotización.
 
-### 3. Mapear ítems a SKUs
+### 4. Mapear ítems a SKUs
 
 Cada ítem de la solicitud debe corresponder a un SKU exacto de
 `datos/catalogo.csv`.
@@ -73,7 +103,7 @@ pregunta debe hacerse ANTES de ejecutar, al mapear. Sí es válido proponer:
 "no manejamos greca; ¿la excluyo o preguntas al cliente?" — proponer
 opciones no es asumirlas.
 
-### 4. Calcular con el script — nunca a mano
+### 5. Calcular con el script — nunca a mano
 
 Armar el JSON y ejecutar:
 
@@ -103,7 +133,7 @@ raro, se revisa la ENTRADA, no se ajusta la salida.
 insuficiente, requiere aprobación, retención informativa. Nunca se omiten ni
 se suavizan.
 
-### 5. Redactar alcance y condiciones
+### 6. Redactar alcance y condiciones
 
 Personalizar con: las **notas del cliente** (restricciones de recibo,
 horarios, requisitos de facturación), el **tiempo de entrega según ciudad**
@@ -111,12 +141,52 @@ horarios, requisitos de facturación), el **tiempo de entrega según ciudad**
 documento) y la condición de pago. El descuento manual siempre con su
 justificación en observaciones.
 
-### 6. Presentar
+### 7. Presentar
 
 Al usuario: resumen de totales (subtotal, descuentos, IVA, total), número de
 cotización, **ruta del documento generado** y **todas las alertas**. Si hubo
 retención informativa, explicar que es el valor que el cliente retendrá al
 pagar y que NO se resta del total cotizado.
+
+## Ficha técnica de producto
+
+Para consultas de producto, no de precio. Una ficha por SKU, **sin consumir
+consecutivo y sin escribir en el historial**: es informativa y no compromete
+valores en firme.
+
+```bash
+python scripts/cotizar.py --modo ficha --entrada peticion.json --salidas <carpeta_estado>
+```
+
+```json
+{
+  "skus": ["ARC-007", "SIL-008"],
+  "ciudad": "Medellín",
+  "cliente": "opcional, aporta la ciudad",
+  "observaciones": "opcional", "asesor": "opcional", "fecha": "AAAA-MM-DD opcional"
+}
+```
+
+No hace falta cliente: una ficha se puede pedir sin destinatario. Si se pasa
+`ciudad` (o un `cliente` que la aporte), el tiempo de entrega se calcula para
+esa ciudad; sin ella la ficha remite a logística en vez de suponer un destino.
+
+**Misma REGLA INQUEBRANTABLE del paso 4:** un SKU que no está en el catálogo
+se pregunta, nunca se inventa. El script devuelve `sku_no_encontrado` con la
+lista de códigos desconocidos y **no genera ninguna ficha**, ni siquiera las
+de los SKUs válidos, para que la respuesta salga completa o no salga.
+
+**Las especificaciones se leen del catálogo, jamás se completan de memoria.**
+Dimensiones, materiales y características se extraen del nombre del producto;
+lo que el nombre no dice sale como "No registrada en catálogo" y el JSON
+devuelve una alerta. Ese hueco es información válida y se transmite tal cual:
+si el usuario necesita el dato, se confirma con el proveedor. Inventar el
+material de una silla es tan grave como inventar su precio.
+
+Al presentar: nombre y SKU, especificaciones encontradas, **precio de lista
+antes de IVA** (aclarando que no incluye descuentos por volumen ni IVA),
+disponibilidad, ruta del documento y todas las alertas. Si el usuario después
+quiere valores en firme, ofrecer emitir la cotización.
 
 ## Casos especiales
 
@@ -136,5 +206,11 @@ pagar y que NO se resta del total cotizado.
   autoriza (hasta 15% sin aprobación; superior requiere gerencia). Mismo
   principio que las cantidades: el sistema no decide descuentos por su
   cuenta (solicitud 10 es este caso).
-- **Producto que no manejamos:** ver regla inquebrantable del paso 3 —
+- **Producto que no manejamos:** ver regla inquebrantable del paso 4 —
   informar, preguntar, jamás inventar.
+- **Consulta de producto sin intención de compra** ("¿qué medidas tiene…?",
+  "¿de qué material es…?"): es una ficha técnica, no una cotización. No gastar
+  consecutivo en resolver una duda.
+- **Ficha de un producto con specs incompletas:** se entrega igual, con los
+  campos ausentes marcados como no registrados. Nunca rellenarlos con datos
+  plausibles: un dato inventado en una ficha termina en un pliego de licitación.
