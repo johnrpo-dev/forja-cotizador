@@ -18,12 +18,15 @@ escribir código de producción se resolvió el diseño completo en conversació
 qué se construye (reto R3 de la Maratón de IA: solicitud informal de vendedor
 → cotización formal numerada), con qué restricción dominante (una persona,
 ~3 días), y qué se descarta y por qué. El resultado de esa fase quedó
-materializado en dos artefactos:
+materializado en tres artefactos:
 
 - `docs/arquitectura.md` — las decisiones (Python sin framework, CSV, la
   carpeta `skill/` como unidad de despliegue, cálculo determinístico fuera
   del modelo), los descartes con su razón (FastAPI, SQLite, reportlab,
   aritmética en manos del LLM) y los riesgos con mitigación.
+- [`docs/plan-forja.md`](plan-forja.md) — el plan de ejecución por fases,
+  con prompts listos para copiar en Claude Code, cronograma, regla de
+  recorte y riesgos con mitigación.
 - El **scaffolding con contratos vacíos**: los scripts de `skill/scripts/`
   nacieron con docstrings de contrato y `raise NotImplementedError`
   etiquetado por fase (p. ej. `NotImplementedError("Fase 1-2")` en
@@ -39,6 +42,12 @@ código, y no cerrar ninguna fase sin `pytest` completo en verde. La
 progresión de tests lo documenta: 16 → 29 → 34 → 40 → 49.
 
 ## Las siete fases
+
+La numeración de esta sección corresponde a los bloques **como se
+ejecutaron**. El plan original ([`plan-forja.md`](plan-forja.md)) numeraba
+distinto — Fases 0 a 7, con una Fase 0 de puesta en marcha manual y una
+Fase 6 de dashboard Artifact marcada como recortable, que no se ejecutó
+(la regla de recorte del propio plan la señalaba como lo primero en caer).
 
 ### Fase 1 — Datos sintéticos (30 jul, 22:01–22:22)
 
