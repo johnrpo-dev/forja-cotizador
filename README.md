@@ -57,6 +57,12 @@ para clientes con historial) y **`agente_retenedor` hay que declararlo**, no
 tiene valor por defecto — suponerlo sería inventar una condición tributaria
 ajena.
 
+![Forja detecta un cliente que no está registrado y pregunta en vez de cotizar a nombre del parecido](docs/img/clienteNuevo.png)
+
+*Solicitud 15: la razón social no está en `clientes.csv` y el parecido con otra
+empresa no alcanza para darla por identificada. La skill lo dice y pregunta, en
+vez de emitir el documento a nombre ajeno.*
+
 La **ficha técnica** reutiliza la validación de SKU, salta el cálculo comercial
 y el registro, y lee las especificaciones del catálogo. Se identifica por SKU,
 así que no necesita numeración ni deja rastro en el historial.
@@ -96,6 +102,11 @@ $1.938.000, IVA $368.220, **total $2.306.220**, entrega en Medellín en 3 días
 hábiles, documento en `salidas/COT-2026-001.docx` y fila en
 `salidas/historial.csv`.
 
+![La solicitud 1 procesada en claude.ai, con el documento generado](docs/img/solicitud1.png)
+
+*El mensaje de WhatsApp entra tal como llega y sale la COT-2026-001, con el 5 %
+de descuento por volumen aplicado solo y el documento listo para descargar.*
+
 El set de prueba (16 solicitudes) cubre además los casos especiales: producto
 con **stock agotado** (se cotiza a precio pleno con alerta y nota de
 reposición), **descuento sobre el máximo** (se calcula igual pero el documento
@@ -109,7 +120,22 @@ razón social se parece a la de uno registrado**: la 15 termina en pregunta en
 vez de cotizar a nombre del parecido, y la 16 la resuelve con los datos
 dictados por el vendedor.
 
+![Cotización marcada como borrador por exceder el tope de descuento](docs/img/descuentoDel20.png)
+
+*Solicitud 3: el 20 % que el vendedor ya prometió supera el tope autónomo del
+15 %. La cotización se calcula igual — el sistema no dice que no — pero el
+documento sale con la banda de borrador que exige aprobación de gerencia.*
+
+![Forja pregunta qué porcentaje de descuento se autoriza](docs/img/preguntaPorDescuento.png)
+
+*Solicitud 10: "algún descuentico" no es una cifra, y el porcentaje es una
+decisión comercial del vendedor. El sistema pregunta y de paso recuerda dónde
+está el tope sin aprobación.*
+
 ![Interacción de Forja ante productos inexistentes](docs/img/COT_Greca.png)
+
+*Solicitud 11: la greca industrial no está en el catálogo. En vez de estimar un
+precio plausible, el flujo se detiene y consulta qué hacer.*
 
 ## Ejemplo real — ficha técnica
 
