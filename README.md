@@ -35,8 +35,10 @@ cliente que compra. De ahí salen dos rutas.
 La **cotización** tiene cinco pasos. (1) **Extracción**: del mensaje informal
 se obtienen cliente, ítems con cantidades y condiciones; si falta una cantidad,
 se pregunta — nunca se asume. (2) **Validación**: el cliente se resuelve
-contra `clientes.csv` (acepta razón social aproximada) y cada ítem debe
-corresponder a un SKU exacto de `catalogo.csv`. (3) **Cálculo**: un script
+contra `clientes.csv` por NIT o por razón social, y esa resolución exige
+certeza: un parecido moderado no identifica a nadie, devuelve los candidatos
+con su puntaje y pregunta cuál es. Cada ítem debe corresponder a un SKU exacto
+de `catalogo.csv`. (3) **Cálculo**: un script
 determinístico aplica descuentos por volumen por línea, descuento manual
 global, IVA 19 % y retención en la fuente informativa, con aritmética
 `Decimal` y redondeo a pesos. (4) **Documento**: se genera el `.docx` desde
@@ -44,6 +46,16 @@ una plantilla, con alertas visibles (banda de borrador si el descuento excede
 el tope, nota de reposición si no hay stock). (5) **Registro**: la cotización
 queda numerada (`COT-2026-NNN`, derivada del máximo del historial) y asentada
 en `historial.csv`.
+
+**Un cliente nuevo también se cotiza**, sin registro previo: sus datos (NIT,
+razón social, contacto y ciudad) viajan dentro de la misma petición y se usan
+solo para ese documento. La skill **no escribe en `clientes.csv`** — dar de
+alta a un cliente es trabajo de cartera, y un sistema que edita su propia
+fuente de datos deja de ser auditable. Por eso el crédito no se improvisa: la
+condición de pago queda en **contado** (políticas §5, que reserva el crédito
+para clientes con historial) y **`agente_retenedor` hay que declararlo**, no
+tiene valor por defecto — suponerlo sería inventar una condición tributaria
+ajena.
 
 La **ficha técnica** reutiliza la validación de SKU, salta el cálculo comercial
 y el registro, y lee las especificaciones del catálogo. Se identifica por SKU,
@@ -59,7 +71,10 @@ de `calculo.py`, un núcleo puro (sin I/O) especificado en
 esperados están calculados a mano en comentarios, auditables sin ejecutar
 nada. La misma lógica aplica a los datos: un producto que no está en el
 catálogo se pregunta, nunca se inventa — el motor lanza `SkuNoEncontrado` en
-vez de estimar un precio, y la skill tiene prohibido asumir equivalencias.
+vez de estimar un precio, y la skill tiene prohibido asumir equivalencias. Un
+cliente que apenas se parece a otro tampoco se da por identificado: emitir la
+cotización a nombre de la empresa equivocada le pone al documento un NIT y un
+régimen tributario ajenos, y eso no se nota hasta que alguien la firma.
 
 La ficha técnica extiende ese principio de los precios a las especificaciones:
 lee dimensiones y materiales del nombre del producto de forma literal, y lo que
@@ -128,7 +143,7 @@ forja/
 │   ├── datos/      ← catálogo, clientes y políticas comerciales (sintéticos)
 │   ├── assets/     ← plantilla.docx (cotización) y plantilla_ficha.docx
 │   └── references/ ← reglas_tributarias.md (especificación del motor)
-├── tests/          ← 72 tests sobre el núcleo y los bordes; nunca tocan salidas/
+├── tests/          ← 86 tests sobre el núcleo y los bordes; nunca tocan salidas/
 ├── salidas/        ← estado: cotizaciones y fichas generadas + historial.csv
 ├── demo/           ← 14 solicitudes de prueba estilo WhatsApp + petición de ejemplo
 └── docs/           ← arquitectura, plan y registro del proceso
@@ -140,7 +155,7 @@ Requiere Python 3.10+.
 
 ```bash
 pip install python-docx pytest
-python -m pytest -q        # 72 passed
+python -m pytest -q        # 86 passed
 ```
 
 Cotización de ejemplo (la solicitud 1, sin consumir consecutivo ni generar
@@ -153,6 +168,16 @@ echo '{"cliente": "Cafe y Punto", "items": [{"sku": "SIL-006", "cantidad": 30}]}
 
 Sin `--solo-calculo`, la misma entrada genera el `.docx` en `salidas/` y
 registra la cotización en el historial.
+
+Cliente nuevo (mismo comando; el cliente va como objeto en vez de texto, y sale
+con la alerta de que hay que tramitar el registro con cartera):
+
+```bash
+echo '{"cliente": {"nit": "901999888-1", "razon_social": "Inversiones La Floresta SAS",
+       "contacto": "Ana Ruiz", "ciudad": "Bogota", "agente_retenedor": false},
+       "items": [{"sku": "SIL-006", "cantidad": 30}]}' \
+  | python skill/scripts/cotizar.py --solo-calculo --salidas salidas
+```
 
 Ficha técnica de ejemplo (dos SKUs de una vez; nunca consume consecutivo, así
 que no necesita bandera equivalente):
