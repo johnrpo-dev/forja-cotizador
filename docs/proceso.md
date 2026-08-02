@@ -4,6 +4,12 @@ Cómo se construyó este proyecto, con los hechos tomados de los transcripts de
 las sesiones de Claude Code y de los archivos del proyecto. Los prompts
 literales de cada sesión están en `docs/prompts-sesion.md`.
 
+**Alcance temporal:** bitácora de la construcción hasta el **31 de julio de
+2026** (sesiones 1 a 3, fases 1 a 7). Sus cifras y descripciones son correctas
+para el momento que registran y no se actualizan después: lo que vino luego no
+está aquí. Para el estado actual del sistema, ver `README.md` y
+`demo/resumen_pruebas.md`.
+
 **Nota sobre las fuentes:** el repositorio git no llegó a inicializarse
 (`git init` figura como primer paso en `docs/arquitectura.md`, pero no se
 ejecutó), así que la evidencia primaria son los transcripts de sesión de

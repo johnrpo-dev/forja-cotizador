@@ -6,6 +6,11 @@ párrafo duplicado por un pegado doble), tomado de los transcripts de sesión de
 Claude Code. Debajo de cada uno, un resumen breve de lo que se hizo en
 respuesta. Horas en hora local de Colombia (UTC−5).
 
+**Alcance temporal:** registro de las sesiones 1 a 3, hasta el **31 de julio de
+2026**. Los prompts y sus resúmenes quedan tal como ocurrieron y no se
+actualizan después: el trabajo posterior no está aquí. Para el estado actual
+del sistema, ver `README.md` y `demo/resumen_pruebas.md`.
+
 ---
 
 ## Sesión 1 — Datos sintéticos (30 de julio, 22:01–22:22)
