@@ -37,6 +37,15 @@ TIEMPOS_ENTREGA_DIAS = {
 }
 ENTREGA_OTRAS_CIUDADES = "7 días hábiles (confirmar con logística)"
 
+# Umbrales de identificación de cliente, con una banda muerta a propósito entre
+# ambos. Las razones sociales colombianas comparten demasiado vocabulario
+# ("SAS", "LTDA", "Comercializadora", "del", "La") como para que un parecido
+# moderado signifique algo: "Constructora Sierra Alta SAS" puntúa 0,79 contra
+# "Constructora Altamira SAS" y son empresas distintas. Por eso un puntaje en
+# la banda NO identifica a nadie — obliga a preguntar.
+UMBRAL_CANDIDATO = 0.60  # por debajo, ni siquiera entra en la lista
+UMBRAL_CERTEZA = 0.85  # desde aquí, identificación positiva sin preguntar
+
 
 def cargar_catalogo(ruta: Path | None = None) -> dict:
     """Devuelve {sku: {"nombre", "categoria", "unidad", "precio_unitario", "stock"}}.
@@ -87,13 +96,18 @@ def _normalizar(texto: str) -> str:
     return " ".join(sin_tildes.lower().split())
 
 
-def buscar_cliente(texto: str, clientes: dict | None = None) -> list[dict]:
+def buscar_cliente(texto: str, clientes: dict | None = None) -> list[tuple[float, dict]]:
     """Busca clientes por razón social aproximada.
 
     El vendedor escribe 'hotel bahia serena', no '901092837-5': la búsqueda
-    ignora tildes y mayúsculas, acepta coincidencias parciales y devuelve los
-    candidatos ordenados del más al menos parecido. Lista vacía si nada
-    supera el umbral — en ese caso hay que preguntar, no adivinar.
+    ignora tildes y mayúsculas y acepta coincidencias parciales.
+
+    Devuelve pares (puntaje, cliente) ordenados del más al menos parecido, y
+    el puntaje es parte del contrato: sin él, quien llama no puede distinguir
+    un 1,0 de un 0,61 y termina tomando por bueno el único candidato que haya
+    quedado. Un cliente nuevo se parece lo suficiente a uno viejo como para
+    que eso emita una cotización a nombre equivocado. Lista vacía si nada
+    supera UMBRAL_CANDIDATO — ahí hay que preguntar, no adivinar.
     """
     clientes = clientes if clientes is not None else cargar_clientes()
     consulta = _normalizar(texto)
@@ -112,11 +126,11 @@ def buscar_cliente(texto: str, clientes: dict | None = None) -> list[dict]:
                 contenidos / len(tokens) * 0.9,
                 SequenceMatcher(None, consulta, razon).ratio(),
             )
-        if puntaje >= 0.6:
+        if puntaje >= UMBRAL_CANDIDATO:
             candidatos.append((puntaje, cliente))
 
     candidatos.sort(key=lambda par: par[0], reverse=True)
-    return [cliente for _, cliente in candidatos]
+    return candidatos
 
 
 def tiempo_entrega(ciudad: str) -> str:

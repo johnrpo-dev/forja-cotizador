@@ -54,17 +54,51 @@ def test_cliente_incluye_su_nit():
 
 def test_buscar_cliente_sin_tildes_ni_mayusculas():
     candidatos = datos_io.buscar_cliente("hotel bahia serena")
-    assert candidatos and candidatos[0]["nit"] == "901092837-5"
+    assert candidatos and candidatos[0][1]["nit"] == "901092837-5"
 
 
 def test_buscar_cliente_parcial():
     candidatos = datos_io.buscar_cliente("Droguería Nororiente")
-    assert candidatos and candidatos[0]["nit"] == "900786153-4"
+    assert candidatos and candidatos[0][1]["nit"] == "900786153-4"
 
 
 def test_buscar_cliente_inexistente_devuelve_vacio():
     assert datos_io.buscar_cliente("Petroquímica Zeta del Pacífico") == []
     assert datos_io.buscar_cliente("") == []
+
+
+def test_buscar_cliente_devuelve_puntajes_ordenados():
+    candidatos = datos_io.buscar_cliente("café")
+    puntajes = [puntaje for puntaje, _ in candidatos]
+    assert puntajes == sorted(puntajes, reverse=True)
+    assert all(p >= datos_io.UMBRAL_CANDIDATO for p in puntajes)
+    # Contención literal: la consulta está dentro de la razón social.
+    assert puntajes[0] == 1.0
+
+
+def test_coincidencia_exacta_puntua_por_encima_de_la_certeza():
+    for texto, nit in (("Constructora Altamira SAS", "900154783-2"),
+                       ("hotel bahia serena", "901092837-5"),
+                       ("Ganadería La Pradera", "901398765-3")):
+        puntaje, cliente = datos_io.buscar_cliente(texto)[0]
+        assert cliente["nit"] == nit, texto
+        assert puntaje >= datos_io.UMBRAL_CERTEZA, (texto, puntaje)
+
+
+def test_clientes_nuevos_parecidos_no_alcanzan_la_certeza():
+    """Los cuatro falsos positivos que emitían cotizaciones a nombre ajeno.
+
+    Ninguno de estos nombres está en clientes.csv. Antes, cada uno se parecía
+    lo bastante a un cliente real como para colarse como candidato único y ser
+    adoptado sin preguntar. Pueden seguir siendo candidatos — lo que no pueden
+    es puntuar como identificación positiva.
+    """
+    for texto in ("Constructora Sierra Alta SAS",
+                  "Comercializadora Andina del Norte SAS",
+                  "Panadería La Espiga",
+                  "Hotel Playa Dorada"):
+        for puntaje, cliente in datos_io.buscar_cliente(texto):
+            assert puntaje < datos_io.UMBRAL_CERTEZA, (texto, cliente["razon_social"], puntaje)
 
 
 def test_tiempo_entrega_segun_ciudad():

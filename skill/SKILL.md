@@ -80,13 +80,49 @@ elige por su cuenta.
 
 ### 3. Identificar el cliente
 
-Contra `datos/clientes.csv`, con `datos_io.buscar_cliente(texto)` (acepta
-razón social aproximada, sin tildes). El script también resuelve esto: si
-devuelve `cliente_ambiguo`, muestra los candidatos y pregunta cuál es; si
-`cliente_no_encontrado`, pide los datos mínimos (razón social, NIT, ciudad,
-contacto, condición de pago) antes de seguir. Lee las **notas** del cliente:
-casi siempre contienen una restricción de entrega o facturación que va en la
-cotización.
+Contra `datos/clientes.csv`, con `datos_io.buscar_cliente(texto)`, que acepta
+razón social aproximada (sin tildes) y devuelve pares `(puntaje, cliente)`
+ordenados. **Solo el NIT exacto o un puntaje ≥ 0,85 identifican.** Un parecido
+moderado no es una identificación: las razones sociales colombianas comparten
+demasiado vocabulario, y "Constructora Sierra Alta SAS" puntúa 0,79 contra
+"Constructora Altamira SAS" siendo otra empresa.
+
+El script resuelve lo mismo y devuelve tres respuestas posibles:
+
+| Respuesta | Qué significa | Qué hacer |
+|---|---|---|
+| cliente resuelto | NIT exacto o parecido fuerte y único | seguir |
+| `cliente_ambiguo` | hay parecidos, ninguno concluyente (banda 0,60–0,85) | mostrar los candidatos **con su puntaje** y preguntar cuál es; si ninguno lo es, es cliente nuevo |
+| `cliente_no_encontrado` | nada se le parece | preguntar; casi siempre es cliente nuevo |
+
+`cliente_ambiguo` **no** significa "elegir el mejor". Ni el script ni el modelo
+eligen: una cotización lleva NIT, ciudad, condición de pago y régimen
+tributario del cliente, y equivocarse de empresa los falsea todos a la vez.
+
+Lee las **notas** del cliente: casi siempre contienen una restricción de
+entrega o facturación que va en la cotización.
+
+**Cliente nuevo (no está en `clientes.csv`).** Pedir razón social, NIT, ciudad
+y contacto, y **preguntar si es agente retenedor** — ese dato no se supone.
+Después, mandar `cliente` como objeto en vez de texto:
+
+```json
+"cliente": {
+  "nit": "901999888-1", "razon_social": "Inversiones La Floresta SAS",
+  "contacto": "Ana Ruiz", "ciudad": "Bogotá",
+  "agente_retenedor": false, "notas": "opcional"
+}
+```
+
+El script **no lo da de alta** en `clientes.csv`: el cliente vale para esa
+cotización y el registro formal lo tramita cartera. Fuerza además condición de
+pago **contado** (políticas §5, primera compra), ignorando cualquier crédito
+que traiga la petición, y devuelve una alerta que hay que transmitir. Si falta
+un dato responde `cliente_nuevo_incompleto` (con la lista de campos), y si no
+se declaró la retención, `retencion_no_declarada` — en ambos casos se pregunta,
+no se completa de memoria. Si el NIT ya existe, responde `cliente_ya_registrado`:
+no era un cliente nuevo, y usar los datos dictados habría pisado la condición
+de pago y las notas del real.
 
 ### 4. Mapear ítems a SKUs
 
@@ -120,6 +156,9 @@ python scripts/cotizar.py --entrada peticion.json --salidas <carpeta_estado>
   "asesor": "opcional", "fecha": "AAAA-MM-DD opcional"
 }
 ```
+
+`cliente` admite texto (se resuelve contra `clientes.csv`) u objeto, que es la
+forma de cotizarle a un cliente nuevo — ver paso 3.
 
 `--solo-calculo` da un borrador sin consumir consecutivo ni generar
 documento — útil para previsualizar antes de confirmar con el usuario.
@@ -168,8 +207,11 @@ python scripts/cotizar.py --modo ficha --entrada peticion.json --salidas <carpet
 ```
 
 No hace falta cliente: una ficha se puede pedir sin destinatario. Si se pasa
-`ciudad` (o un `cliente` que la aporte), el tiempo de entrega se calcula para
-esa ciudad; sin ella la ficha remite a logística en vez de suponer un destino.
+`ciudad` (o un `cliente` que la aporte, ya sea texto u objeto), el tiempo de
+entrega se calcula para esa ciudad; sin ella la ficha remite a logística en vez
+de suponer un destino. Un `cliente` en texto que no se resuelva con certeza
+tampoco aporta ciudad: mejor remitir a logística que heredar el destino —
+y el flete — de una empresa parecida.
 
 **Misma REGLA INQUEBRANTABLE del paso 4:** un SKU que no está en el catálogo
 se pregunta, nunca se inventa. El script devuelve `sku_no_encontrado` con la
@@ -198,8 +240,14 @@ quiere valores en firme, ofrecer emitir la cotización.
   la nota de reposición queda en observaciones del documento (política §6).
   Transmitir la alerta y sugerir confirmar fecha de reposición.
 - **Cliente nuevo (no está en clientes.csv):** pedir razón social, NIT,
-  ciudad, contacto y condición de pago. Recordar la política: primera compra
-  de clientes nuevos siempre de contado.
+  ciudad, contacto y **si es agente retenedor**; mandarlo como objeto en
+  `cliente` (paso 3). La condición de pago no se pregunta: la primera compra
+  de un cliente nuevo es de contado y el script la fuerza. Avisar que el
+  cliente queda sin registrar y que el alta la tramita cartera.
+- **Cliente parecido pero no idéntico:** `cliente_ambiguo` se resuelve
+  preguntando, jamás quedándose con el de mayor puntaje. Que haya sobrado un
+  solo candidato no lo confirma: puede ser un cliente nuevo que se parece a
+  uno viejo.
 - **Solicitud ambigua sin cantidades:** preguntar. Una cotización con
   cantidades inventadas es peor que una pregunta de más.
 - **Descuento pedido sin cifra:** preguntar al vendedor qué porcentaje

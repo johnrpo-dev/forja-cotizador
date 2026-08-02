@@ -20,6 +20,20 @@ Petición de cotización (JSON):
       "asesor": "...", "fecha": "2026-07-30"   // opcionales
     }
 
+Cliente nuevo (todavía no está en clientes.csv): "cliente" va como objeto en
+vez de texto, y no se da de alta en el CSV — vale solo para esta cotización.
+
+    "cliente": {
+      "nit": "901999888-1", "razon_social": "...",
+      "contacto": "...", "ciudad": "Bogotá",
+      "agente_retenedor": false,               // OBLIGATORIO declararlo
+      "notas": "..."                           // opcional
+    }
+
+La condición de pago se fuerza a contado (políticas §5, primera compra) y
+agente_retenedor no tiene valor por defecto: sin declarar, el script lo
+reclama en vez de suponer que el cliente no retiene.
+
 Petición de ficha técnica (JSON):
     {
       "modo": "ficha",                         // o pasar --modo ficha
@@ -71,15 +85,103 @@ def _enumerar(terminos: list[str]) -> str:
     return f"{', '.join(terminos[:-1])} y {terminos[-1]}"
 
 
+# Datos mínimos para cotizarle a un cliente que aún no está en clientes.csv.
+CAMPOS_CLIENTE_NUEVO = ("nit", "razon_social", "contacto", "ciudad")
+
+
 def _resolver_cliente(referencia: str, clientes: dict):
-    """NIT exacto o razón social aproximada. Devuelve (cliente, candidatos)."""
+    """NIT exacto o razón social aproximada. Devuelve (cliente, candidatos).
+
+    Identifica solo con un parecido fuerte y único (datos_io.UMBRAL_CERTEZA) o
+    con el NIT exacto. Un puntaje en la banda intermedia devuelve
+    (None, candidatos) para que el flujo pregunte: quedarse con el mejor de
+    varios parecidos tibios es cómo se termina facturando a otra empresa.
+    """
     referencia = referencia.strip()
     if referencia in clientes:
         return clientes[referencia], []
     candidatos = datos_io.buscar_cliente(referencia, clientes)
-    if len(candidatos) == 1:
-        return candidatos[0], []
+    ciertos = [c for puntaje, c in candidatos if puntaje >= datos_io.UMBRAL_CERTEZA]
+    if len(ciertos) == 1:
+        return ciertos[0], []
     return None, candidatos
+
+
+def _leer_retenedor(valor):
+    """True/False si la petición lo declara inequívocamente; None si no.
+
+    Cuidado con bool("no"), que es True: un 'no' leído como sí le inventaría
+    una retención al cliente. Todo lo que no sea un sí o un no claro es un
+    dato ausente, y un dato ausente se pregunta.
+    """
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, str):
+        texto = valor.strip().lower()
+        if texto in ("si", "sí", "true", "1"):
+            return True
+        if texto in ("no", "false", "0"):
+            return False
+    return None
+
+
+def _cliente_nuevo(datos: dict, clientes: dict):
+    """Cliente declarado en la propia petición. Devuelve (cliente, fallo).
+
+    'fallo' son los kwargs de _error() cuando la declaración no alcanza.
+
+    NO escribe en clientes.csv: el alta formal la hace cartera, y una skill
+    que edita su propia fuente de datos deja de ser auditable. El cliente
+    vale para esta cotización y nada más.
+
+    Dos reglas que no se negocian:
+
+      - condición de pago de CONTADO, traiga lo que traiga la petición:
+        políticas §5, primera compra de cliente nuevo;
+      - agente_retenedor tiene que venir declarado. Suponerlo en falso es
+        inventar una condición tributaria — justo lo que la skill prohíbe.
+    """
+    faltantes = [c for c in CAMPOS_CLIENTE_NUEVO if not str(datos.get(c, "")).strip()]
+    if faltantes:
+        return None, {
+            "tipo": "cliente_nuevo_incompleto",
+            "mensaje": f"Faltan datos del cliente nuevo: {_enumerar(faltantes)}. "
+                       "Pedírselos al vendedor antes de cotizar.",
+            "campos_faltantes": faltantes,
+        }
+
+    nit = str(datos["nit"]).strip()
+    if nit in clientes:
+        registrado = clientes[nit]
+        return None, {
+            "tipo": "cliente_ya_registrado",
+            "mensaje": f"El NIT {nit} ya está en clientes.csv como "
+                       f"{registrado['razon_social']}: no es un cliente nuevo. "
+                       "Cotizar con el registro existente (que trae su condición de "
+                       "pago y sus notas) o confirmar cuál de los dos es el correcto.",
+            "cliente_registrado": {"nit": nit, "razon_social": registrado["razon_social"],
+                                   "ciudad": registrado["ciudad"],
+                                   "condicion_pago": registrado["condicion_pago"]},
+        }
+
+    retenedor = _leer_retenedor(datos.get("agente_retenedor"))
+    if retenedor is None:
+        return None, {
+            "tipo": "retencion_no_declarada",
+            "mensaje": "Falta declarar si el cliente nuevo es agente retenedor "
+                       "(agente_retenedor: true/false). PREGUNTAR: suponer que no "
+                       "retiene inventa una condición tributaria del cliente.",
+        }
+
+    return {
+        "nit": nit,
+        "razon_social": str(datos["razon_social"]).strip(),
+        "contacto": str(datos["contacto"]).strip(),
+        "ciudad": str(datos["ciudad"]).strip(),
+        "agente_retenedor": retenedor,
+        "condicion_pago": "contado",  # políticas §5: primera compra
+        "notas": str(datos.get("notas", "")).strip(),
+    }, None
 
 
 def main(argv=None) -> int:
@@ -131,10 +233,18 @@ def _flujo_ficha(peticion: dict, salidas: Path) -> int:
     # La ciudad solo afecta el tiempo de entrega. Sin destino la ficha no lo
     # supone: enuncia la sede y remite a logística.
     ciudad = peticion.get("ciudad")
-    if not ciudad and peticion.get("cliente"):
-        cliente, _ = _resolver_cliente(str(peticion["cliente"]), datos_io.cargar_clientes())
-        if cliente:
-            ciudad = cliente["ciudad"]
+    referencia = peticion.get("cliente")
+    if not ciudad and referencia:
+        # La ficha no exige cliente registrado. Si viene declarado como objeto
+        # (cliente nuevo), su ciudad sirve igual; si es una referencia que no
+        # se resuelve con certeza, se queda sin ciudad y remite a logística
+        # antes que heredar el destino de un cliente parecido.
+        if isinstance(referencia, dict):
+            ciudad = str(referencia.get("ciudad", "")).strip()
+        else:
+            cliente, _ = _resolver_cliente(str(referencia), datos_io.cargar_clientes())
+            if cliente:
+                ciudad = cliente["ciudad"]
     if ciudad:
         entrega = f"{datos_io.tiempo_entrega(ciudad)} ({ciudad})"
     else:
@@ -202,16 +312,32 @@ def _flujo_cotizacion(peticion: dict, salidas: Path, solo_calculo: bool) -> int:
     clientes = datos_io.cargar_clientes()
     politicas = datos_io.cargar_politicas()
 
-    cliente, candidatos = _resolver_cliente(str(peticion["cliente"]), clientes)
-    if cliente is None:
-        if candidatos:
+    # Un cliente puede llegar como referencia (texto a resolver contra el CSV) o
+    # como objeto: eso último es un cliente nuevo que el vendedor acaba de dictar.
+    referencia = peticion["cliente"]
+    es_nuevo = isinstance(referencia, dict)
+    if es_nuevo:
+        cliente, fallo = _cliente_nuevo(referencia, clientes)
+        if fallo:
+            return _error(**fallo)
+    else:
+        cliente, candidatos = _resolver_cliente(str(referencia), clientes)
+        if cliente is None:
+            if candidatos:
+                return _error(
+                    "cliente_ambiguo",
+                    f"Ningún cliente coincide con certeza con {referencia!r}, pero estos "
+                    "se le parecen: preguntar cuál es. Si ninguno lo es, declararlo como "
+                    "cliente nuevo enviando 'cliente' como objeto.",
+                    candidatos=[{"nit": c["nit"], "razon_social": c["razon_social"],
+                                 "puntaje": round(puntaje, 2)}
+                                for puntaje, c in candidatos],
+                )
             return _error(
-                "cliente_ambiguo",
-                "Varios clientes coinciden: preguntar cuál es antes de cotizar.",
-                candidatos=[{"nit": c["nit"], "razon_social": c["razon_social"]} for c in candidatos],
-            )
-        return _error("cliente_no_encontrado",
-                      f"Ningún cliente coincide con {peticion['cliente']!r}: preguntar, no adivinar.")
+                "cliente_no_encontrado",
+                f"Ningún cliente coincide con {referencia!r}: preguntar, no adivinar. "
+                "Si es cliente nuevo, enviar 'cliente' como objeto con nit, "
+                "razon_social, contacto, ciudad y agente_retenedor.")
 
     descuento = peticion.get("descuento_manual_pct")
     try:
@@ -225,11 +351,20 @@ def _flujo_cotizacion(peticion: dict, salidas: Path, solo_calculo: bool) -> int:
     except (ValueError, ArithmeticError) as exc:
         return _error("peticion_invalida", str(exc))
 
+    alertas = list(resultado.alertas)
+    if es_nuevo:
+        alertas.append(
+            "Cliente nuevo, no registrado en clientes.csv: se cotiza de contado "
+            "(políticas §5, primera compra) y no queda dado de alta. Tramitar el "
+            "registro con cartera antes de facturar."
+        )
+
     fecha = peticion.get("fecha") or dt.date.today().isoformat()
     salida = {
         "estado": "ok",
         "numero": None,
-        "cliente": {"nit": cliente["nit"], "razon_social": cliente["razon_social"]},
+        "cliente": {"nit": cliente["nit"], "razon_social": cliente["razon_social"],
+                    "nuevo": es_nuevo},
         "totales": {
             "subtotal": str(resultado.subtotal),
             "descuento_manual_pct": str(resultado.descuento_pct),
@@ -246,7 +381,7 @@ def _flujo_cotizacion(peticion: dict, salidas: Path, solo_calculo: bool) -> int:
             for l in resultado.lineas
         ],
         "requiere_aprobacion": resultado.requiere_aprobacion,
-        "alertas": resultado.alertas,
+        "alertas": alertas,
         "documento": None,
     }
 
@@ -258,7 +393,7 @@ def _flujo_cotizacion(peticion: dict, salidas: Path, solo_calculo: bool) -> int:
     # Las políticas exigen indicar en la cotización las novedades de stock y
     # aprobación: las alertas van también al documento, no solo al JSON.
     observaciones = " ".join(
-        parte for parte in [peticion.get("observaciones", "").strip(), *resultado.alertas] if parte
+        parte for parte in [peticion.get("observaciones", "").strip(), *alertas] if parte
     ) or "Ninguna."
     textos = {
         "fecha": fecha,

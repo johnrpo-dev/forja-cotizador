@@ -5,11 +5,13 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 from docx import Document
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "skill" / "scripts"))
 
 import cotizar  # noqa: E402
+import datos_io  # noqa: E402
 
 
 def _correr(tmp_path, capsys, peticion, extra_args=()):
@@ -81,6 +83,122 @@ def test_cliente_no_encontrado(tmp_path, capsys):
                              dict(PETICION_BASE, cliente="Astilleros del Pacífico Sur"))
     assert codigo == 1
     assert salida["tipo"] == "cliente_no_encontrado"
+
+
+# --- cliente nuevo ----------------------------------------------------------
+#
+# Estos cuatro nombres NO están en clientes.csv. Cada uno se parecía lo
+# suficiente a un cliente real como para quedar de candidato único y ser
+# adoptado sin preguntar: la cotización salía con el NIT, la ciudad y la
+# condición tributaria de otra empresa, numerada y anotada en el historial.
+
+NOMBRES_CLIENTE_NUEVO = (
+    "Constructora Sierra Alta SAS",        # se parecía a Constructora Altamira SAS
+    "Comercializadora Andina del Norte SAS",  # a Comercializadora Galeras SAS
+    "Panadería La Espiga",                 # a Ganadería La Pradera SAS
+    "Hotel Playa Dorada",                  # a Hotel Bahía Serena SAS
+)
+
+
+@pytest.mark.parametrize("nombre", NOMBRES_CLIENTE_NUEVO)
+def test_cliente_parecido_nunca_se_adopta_en_silencio(tmp_path, capsys, nombre):
+    codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=nombre))
+    assert codigo == 1
+    assert salida["estado"] == "error"
+    assert salida["tipo"] == "cliente_ambiguo"
+    # Se listan para que el usuario decida, con el puntaje a la vista.
+    assert salida["candidatos"]
+    assert all(c["puntaje"] < datos_io.UMBRAL_CERTEZA for c in salida["candidatos"])
+    assert not (tmp_path / "salidas").exists()  # ni documento ni consecutivo
+
+
+CLIENTE_NUEVO = {
+    "nit": "901999888-1",
+    "razon_social": "Inversiones La Floresta SAS",
+    "contacto": "Ana Ruiz",
+    "ciudad": "Bogotá",
+    "agente_retenedor": False,
+}
+
+
+def _texto(ruta) -> str:
+    doc = Document(ruta)
+    return "\n".join(
+        [p.text for p in doc.paragraphs]
+        + [c.text for t in doc.tables for f in t.rows for c in f.cells]
+    )
+
+
+def test_cliente_inline_cotiza_sin_darlo_de_alta(tmp_path, capsys):
+    codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=CLIENTE_NUEVO))
+    assert codigo == 0
+    assert salida["cliente"] == {"nit": "901999888-1",
+                                 "razon_social": "Inversiones La Floresta SAS",
+                                 "nuevo": True}
+    assert Path(salida["documento"]).exists()
+    assert "Inversiones La Floresta SAS" in _texto(salida["documento"])
+    # El alta formal la hace cartera: la skill no escribe en su fuente de datos.
+    assert "901999888-1" not in datos_io.cargar_clientes()
+
+
+def test_cliente_inline_se_cotiza_de_contado_aunque_pida_credito(tmp_path, capsys):
+    # Políticas §5: primera compra de cliente nuevo siempre de contado.
+    peticion = dict(PETICION_BASE, cliente=dict(CLIENTE_NUEVO, condicion_pago="30 dias"))
+    codigo, salida = _correr(tmp_path, capsys, peticion)
+    assert codigo == 0
+    texto = _texto(salida["documento"])
+    assert "contado" in texto
+    assert "30 dias" not in texto
+    assert any("contado" in a and "§5" in a for a in salida["alertas"])
+
+
+def test_cliente_inline_sin_declarar_retencion_pregunta(tmp_path, capsys):
+    # Suponer que no retiene es inventarle una condición tributaria al cliente.
+    sin_declarar = {k: v for k, v in CLIENTE_NUEVO.items() if k != "agente_retenedor"}
+    codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=sin_declarar))
+    assert codigo == 1
+    assert salida["tipo"] == "retencion_no_declarada"
+    assert not (tmp_path / "salidas").exists()
+
+
+def test_cliente_inline_retenedor_declarado_liquida_retefuente(tmp_path, capsys):
+    peticion = dict(PETICION_BASE, cliente=dict(CLIENTE_NUEVO, agente_retenedor=True))
+    codigo, salida = _correr(tmp_path, capsys, peticion)
+    assert codigo == 0
+    # Base 1.938.000 > 1.000.000 → 2,5% = 48.450, informativa (no resta del total).
+    assert salida["totales"]["retefuente_informativa"] == "48450"
+    assert salida["totales"]["total"] == "2306220"
+
+
+def test_retenedor_en_texto_no_se_lee_al_reves():
+    # bool("no") es True: leerlo así le inventaría una retención al cliente.
+    assert cotizar._leer_retenedor("no") is False
+    assert cotizar._leer_retenedor("sí") is True
+    assert cotizar._leer_retenedor(False) is False
+    # Lo que no es un sí ni un no claro es un dato ausente, y se pregunta.
+    assert cotizar._leer_retenedor("quizás") is None
+    assert cotizar._leer_retenedor("") is None
+    assert cotizar._leer_retenedor(None) is None
+
+
+def test_cliente_inline_incompleto_dice_que_falta(tmp_path, capsys):
+    incompleto = {"nit": "901999888-1", "razon_social": "Inversiones La Floresta SAS",
+                  "agente_retenedor": False}
+    codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=incompleto))
+    assert codigo == 1
+    assert salida["tipo"] == "cliente_nuevo_incompleto"
+    assert salida["campos_faltantes"] == ["contacto", "ciudad"]
+    assert not (tmp_path / "salidas").exists()
+
+
+def test_cliente_inline_con_nit_ya_registrado_no_es_nuevo(tmp_path, capsys):
+    # Aceptarlo pisaría la condición de pago y las notas del cliente real.
+    suplantador = dict(CLIENTE_NUEVO, nit="901238450-6")
+    codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=suplantador))
+    assert codigo == 1
+    assert salida["tipo"] == "cliente_ya_registrado"
+    assert salida["cliente_registrado"]["razon_social"] == "Café y Punto SAS"
+    assert not (tmp_path / "salidas").exists()
 
 
 def test_stock_insuficiente_alerta_sin_alterar_precios(tmp_path, capsys):
