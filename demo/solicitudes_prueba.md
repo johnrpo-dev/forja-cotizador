@@ -6,7 +6,10 @@ lenguaje informal. Usar junto con `catalogo.csv`, `clientes.csv` y
 
 Las solicitudes 1 a 12 piden **cotización**. Las 13 y 14 piden **ficha
 técnica**: preguntan por el producto sin pedir precios ni cantidades, y no
-deben consumir consecutivo del historial.
+deben consumir consecutivo del historial. Las 15 y 16 son el mismo **cliente
+nuevo**, que no está en `clientes.csv`: la 15 llega solo con una razón social
+parecida a la de un cliente existente —y no debe resolverse a nombre de ese
+otro—, y la 16 vuelve con los datos dictados por el vendedor.
 
 ---
 
@@ -117,3 +120,18 @@ deben consumir consecutivo del historial.
 > documento con todas las especificaciones. Todavía no hay orden ni han
 > definido cuántas van a comprar, apenas están armando el expediente. Me la
 > mandas hoy porfa
+
+## Solicitud 15
+
+> [9:10 a.m.] Buenas! Me entró una de Constructora Sierra Alta SAS, allá en
+> Bucaramanga, los de las torres del anillo vial. Van a montar la oficina de
+> la obra y necesitan 12 sillas ergonómicas Cedro Pro. El ingeniero quiere ver
+> precio hoy mismo, me la armas porfa 🙏
+
+## Solicitud 16
+
+> [11:40 a.m.] Listo, ya les pregunté todo a los de Sierra Alta. Me dictaron:
+> NIT 901447892-3, Constructora Sierra Alta SAS, el contacto es la ingeniera
+> Sandra Villamizar y la obra queda en Bucaramanga. Y me confirmaron que ellos
+> NO son agentes de retención. Ahí sí me armas la coti de las 12 sillas
+> ergonómicas Cedro Pro que te dije 👌

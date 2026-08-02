@@ -1,4 +1,4 @@
-# Resumen de pruebas — las 14 solicitudes de demo
+# Resumen de pruebas — las 16 solicitudes de demo
 
 Corrida real del flujo completo (1 de agosto de 2026, la fecha que llevan las
 filas de `salidas/historial.csv`) sobre `demo/solicitudes_prueba.md`, una
@@ -11,6 +11,12 @@ el mapeo, antes de calcular.
 
 Las solicitudes 13 y 14 se ejecutaron en **modo ficha** (`--modo ficha`):
 producen documento pero no consumen consecutivo ni escriben en el historial.
+
+Las solicitudes 15 y 16 se agregaron después, con el arreglo de identificación
+de clientes, y se corrieron el **2 de agosto de 2026** contra el mismo
+`salidas/` —sin reiniciarlo— para que se vea que el consecutivo continúa donde
+lo dejó la primera corrida. Por eso la fila 9 del historial lleva esa fecha y
+las ocho anteriores la del 1 de agosto.
 
 ## Tabla de resultados
 
@@ -30,6 +36,8 @@ producen documento pero no consumen consecutivo ni escriben en el historial.
 | 12 | Hotel Bahía Serena SAS (Cartagena) | 2 × aire acondicionado mini split 12000 BTU | **Consulta, sin documento**: no manejamos aires acondicionados (verificado: 0 coincidencias). Responder al cliente que no está en el portafolio | — |
 | 13 | Droguería Nororiente SAS (Cúcuta) | medidas y material del estante metálico de carga liviana (ARC-007) — **sin cantidades ni precios**, pide explícitamente no cotizar todavía | **Ficha técnica** — `salidas/FICHA-ARC-007.docx`, precio de lista $345.000, entrega 5 días hábiles (Cúcuta). **Sin consecutivo** | el catálogo no registra características |
 | 14 | Universidad Corporación del Sur (Pasto) | ficha de la silla ergonómica Nogal con soporte lumbar (SIL-008) para anexar al expediente de compra, sin orden ni cantidades definidas | **Ficha técnica** — `salidas/FICHA-SIL-008.docx`, precio de lista $915.000, entrega 6 días hábiles (Pasto). **Sin consecutivo** | el catálogo no registra dimensiones ni materiales: la ficha los **declara**, no los completa |
+| 15 | Constructora Sierra Alta SAS (Bucaramanga) — **no está en `clientes.csv`** | 12 × silla ergonómica Cedro Pro (SIL-001); del cliente solo llega la razón social, sin NIT, sin contacto y sin decir si retiene | **Consulta, sin documento**: `cliente_ambiguo` (exit 1). Se parece a **Constructora Altamira SAS** con puntaje **0,79** —dentro de la banda muerta— pero no es la misma empresa. ¿Es ese cliente o es uno nuevo? Si es nuevo faltan NIT, contacto y la declaración de agente retenedor | — |
+| 16 | Constructora Sierra Alta SAS (Bucaramanga) — cliente nuevo, datos dictados | mismo pedido, ahora con NIT 901447892-3, contacto Sandra Villamizar, ciudad Bucaramanga y **no es agente retenedor**, declarado | **COT-2026-009** — total $9.838.920, condición de pago **contado**, entrega 4 días hábiles | cliente nuevo sin registrar: se cotiza de contado (políticas §5) y **no queda dado de alta**; tramitar el registro con cartera antes de facturar |
 
 Notas de la corrida:
 
@@ -130,19 +138,59 @@ aparece ningún material ni medida inventada. Un dato falso en una ficha que se
 anexa a un proceso de compra es exactamente el daño que esta skill existe para
 evitar.
 
+### Cliente nuevo con razón social parecida (15 y 16)
+
+Ejercita los dos umbrales de identificación y la ruta de alta inline. Son la
+misma venta partida en dos mensajes, que es como llega en la práctica.
+
+La 15 trae solo el nombre. "Constructora Sierra Alta SAS" puntúa **0,79**
+contra "Constructora Altamira SAS": bastante para aparecer como candidato,
+insuficiente para identificar a nadie. Las razones sociales colombianas
+comparten demasiado vocabulario —SAS, Ltda, Constructora, Comercializadora—
+como para que un parecido moderado signifique algo, así que la banda entre 0,60
+y 0,85 no elige: pregunta. El script sale con `cliente_ambiguo` y código 1, y
+lista el candidato con su puntaje para que el vendedor confirme.
+
+Lo que se evita se puede cuantificar, porque es lo que el sistema hacía antes:
+adoptaba al candidato único sin mirar el puntaje. Esta misma solicitud habría
+salido a nombre de **Constructora Altamira SAS**, con su NIT (900154783-2), su
+ciudad (Bogotá, y por tanto 2 días de entrega en vez de 4), su condición de
+pago a 30 días y su régimen —Altamira **sí** es agente retenedor—, de modo que
+el documento habría impreso una retención informativa de **$206.700** que a
+Sierra Alta no le corresponde. Y habría quedado asentada en el historial con el
+NIT ajeno. Nada de eso dispara una alerta: sale un documento perfecto de otra
+empresa.
+
+La 16 cierra el caso por la ruta de alta: el vendedor vuelve con NIT, contacto,
+ciudad y la declaración expresa de que **no** son agentes de retención, y esos
+datos viajan dentro de la petición. La cotización sale (COT-2026-009,
+$9.838.920) sin retención, de **contado** —políticas §5 reserva el crédito para
+clientes con historial— y con la alerta impresa en el documento de que el
+cliente no quedó dado de alta. `clientes.csv` **no se tocó**: sigue con 50
+registros. Dar de alta es trabajo de cartera.
+
+El dato que el vendedor no dio en la 15 es justamente el que no se puede
+suponer: si `agente_retenedor` no viene declarado, el script responde
+`retencion_no_declarada` en vez de asumir un valor. Suponer "no retiene" es
+inventar una condición tributaria, y suponer "sí retiene" es imprimir una
+retención inexistente; las dos son cifras falsas en un documento que el cliente
+firma.
+
 ## Cierre de la corrida
 
-- **8 solicitudes produjeron cotización** (1, 2, 3, 4, 6, 7, 8, 9) →
-  COT-2026-001 a COT-2026-008.
+- **9 solicitudes produjeron cotización** (1, 2, 3, 4, 6, 7, 8, 9, 16) →
+  COT-2026-001 a COT-2026-009.
 - **2 produjeron ficha técnica** (13 y 14) → `FICHA-ARC-007.docx` y
   `FICHA-SIL-008.docx`, ambas **sin consumir consecutivo**.
-- **4 quedaron en consulta al usuario, sin documento** (5, 10, 11, 12), como
-  exige el workflow: cantidades faltantes (5), descuento sin cifra (10) y
-  productos fuera de catálogo (11 y 12).
+- **5 quedaron en consulta al usuario, sin documento** (5, 10, 11, 12, 15),
+  como exige el workflow: cantidades faltantes (5), descuento sin cifra (10),
+  productos fuera de catálogo (11 y 12) y cliente que no se puede identificar
+  con certeza (15).
 - **Historial consistente y consecutivo**: `salidas/historial.csv` tiene
-  exactamente 8 filas, numeradas COT-2026-001 a COT-2026-008 sin huecos ni
+  exactamente 9 filas, numeradas COT-2026-001 a COT-2026-009 sin huecos ni
   duplicados, cada una con su `.docx` presente en `salidas/`, totales
-  idénticos a la salida JSON del script, y estados correctos: 7 `emitida` y
+  idénticos a la salida JSON del script, y estados correctos: 8 `emitida` y
   1 `borrador_requiere_aprobacion` (la COT-2026-003). Las dos fichas **no lo
   alteraron**: el archivo quedó con el mismo SHA-256 antes y después de
-  generarlas.
+  generarlas. La 15, que salió con error, tampoco: el consecutivo solo se
+  mueve cuando hay documento.

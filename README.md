@@ -96,7 +96,7 @@ $1.938.000, IVA $368.220, **total $2.306.220**, entrega en Medellín en 3 días
 hábiles, documento en `salidas/COT-2026-001.docx` y fila en
 `salidas/historial.csv`.
 
-El set de prueba (14 solicitudes) cubre además los casos especiales: producto
+El set de prueba (16 solicitudes) cubre además los casos especiales: producto
 con **stock agotado** (se cotiza a precio pleno con alerta y nota de
 reposición), **descuento sobre el máximo** (se calcula igual pero el documento
 sale como borrador que requiere aprobación de gerencia), **retención
@@ -104,7 +104,10 @@ informativa** para clientes agentes retenedores (se muestra lo que el cliente
 retendrá al pagar, sin restarse del total) y **producto inexistente** (el
 sistema pregunta si se reemplaza o se excluye). Las solicitudes 13 y 14 piden
 **ficha técnica** en vez de precios, y verifican que una consulta de producto
-no gaste un consecutivo de cotización.
+no gaste un consecutivo de cotización. Las 15 y 16 son un **cliente nuevo cuya
+razón social se parece a la de uno registrado**: la 15 termina en pregunta en
+vez de cotizar a nombre del parecido, y la 16 la resuelve con los datos
+dictados por el vendedor.
 
 ![Interacción de Forja ante productos inexistentes](docs/img/COT_Greca.png)
 
@@ -145,7 +148,7 @@ forja/
 │   └── references/ ← reglas_tributarias.md (especificación del motor)
 ├── tests/          ← 86 tests sobre el núcleo y los bordes; nunca tocan salidas/
 ├── salidas/        ← estado: cotizaciones y fichas generadas + historial.csv
-├── demo/           ← 14 solicitudes de prueba estilo WhatsApp + petición de ejemplo
+├── demo/           ← 16 solicitudes de prueba estilo WhatsApp + petición de ejemplo
 └── docs/           ← arquitectura, plan y registro del proceso
 ```
 
