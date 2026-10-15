@@ -12,6 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "skill" / "scrip
 
 import cotizar  # noqa: E402
 import datos_io  # noqa: E402
+import documento  # noqa: E402
+
+
+@pytest.fixture
+def sin_libreoffice(monkeypatch):
+    """Fuerza la salida .docx: estos tests leen el documento con python-docx,
+    que no abre PDF. Sin esto fallan en equipos con LibreOffice instalado."""
+    monkeypatch.setattr(documento.shutil, "which", lambda _: None)
 
 
 def _correr(tmp_path, capsys, peticion, extra_args=()):
@@ -129,6 +137,7 @@ def _texto(ruta) -> str:
     )
 
 
+@pytest.mark.usefixtures("sin_libreoffice")
 def test_cliente_inline_cotiza_sin_darlo_de_alta(tmp_path, capsys):
     codigo, salida = _correr(tmp_path, capsys, dict(PETICION_BASE, cliente=CLIENTE_NUEVO))
     assert codigo == 0
@@ -141,6 +150,7 @@ def test_cliente_inline_cotiza_sin_darlo_de_alta(tmp_path, capsys):
     assert "901999888-1" not in datos_io.cargar_clientes()
 
 
+@pytest.mark.usefixtures("sin_libreoffice")
 def test_cliente_inline_se_cotiza_de_contado_aunque_pida_credito(tmp_path, capsys):
     # Políticas §5: primera compra de cliente nuevo siempre de contado.
     peticion = dict(PETICION_BASE, cliente=dict(CLIENTE_NUEVO, condicion_pago="30 dias"))
@@ -282,12 +292,14 @@ def _texto_de_tablas(ruta):
                      for f in t.rows for c in f.cells)
 
 
+@pytest.mark.usefixtures("sin_libreoffice")
 def test_ficha_usa_la_ciudad_para_el_tiempo_de_entrega(tmp_path, capsys):
     peticion = {"sku": "ARC-007", "ciudad": "Cúcuta", "fecha": "2026-08-01"}
     _, salida = _correr(tmp_path, capsys, peticion, ["--modo", "ficha"])
     assert "5 días hábiles (Cúcuta)" in _texto_de_tablas(salida["fichas"][0]["documento"])
 
 
+@pytest.mark.usefixtures("sin_libreoffice")
 def test_ficha_sin_ciudad_no_supone_un_destino(tmp_path, capsys):
     _, salida = _correr(tmp_path, capsys, {"sku": "ARC-007"}, ["--modo", "ficha"])
     texto = _texto_de_tablas(salida["fichas"][0]["documento"])
